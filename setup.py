@@ -59,7 +59,7 @@ setuptools.setup(
         "mathchat": ["sympy", "pydantic==1.10.9", "wolframalpha"],
         "retrievechat": ["chromadb", "tiktoken", "sentence_transformers", "pypdf", "ipython"],
         "teachable": ["chromadb"],
-        "learn_to_pick": ["learn-to-pick"],
+        "learn_to_pick": ["learn-to-pick==0.0.3"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
