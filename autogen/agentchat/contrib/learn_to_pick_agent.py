@@ -25,7 +25,7 @@ class LearnToPickAgent(ConversableAgent):
         name="learntopickagent",
         system_message: Optional[
             str
-        ] = "You are a helpful AI assistant that remembers user teachings from prior chats.",
+        ] = "You are a helpful AI assistant.",
         human_input_mode: Optional[str] = "NEVER",
         llm_config: Optional[Union[Dict, bool]] = None,
         learn_to_pick_config: Optional[Dict] = None,
