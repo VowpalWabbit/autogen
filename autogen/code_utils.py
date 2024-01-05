@@ -237,10 +237,11 @@ def is_docker_running():
     try:
         client = docker.from_env()
         client.ping()
+        print("******** docker is running ********")
         return True
     except docker.errors.DockerException as e:
         print("******** docker not running ********")
-        print(e)
+        print(f"******** {e} ********")
         return False
 
 
@@ -374,6 +375,7 @@ def execute_code(
 
     # create a docker client
     if use_docker and not docker_running:
+        print("******** docker not running raising runtime error ********")
         raise RuntimeError(
             "Docker package is missing or docker is not running. Please make sure docker is running or set use_docker=False."
         )
@@ -409,6 +411,8 @@ def execute_code(
         volume_path = volume_path[0].lower() + volume_path[1:]
     else:
         volume_path = str(abs_path)
+
+    print(f"***** volume_path: {volume_path} *****")
 
     cmd = [
         "sh",
