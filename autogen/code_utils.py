@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import pathlib
 import re
 import subprocess
@@ -231,12 +232,15 @@ def is_docker_running():
         bool: True if docker is running; False otherwise.
     """
     if docker is None:
+        print("******** docker not installed ********")
         return False
     try:
         client = docker.from_env()
         client.ping()
         return True
-    except docker.errors.DockerException:
+    except docker.errors.DockerException as e:
+        print("******** docker not running ********")
+        print(e)
         return False
 
 
@@ -399,6 +403,13 @@ def execute_code(
     # get a randomized str based on current time to wrap the exit code
     exit_code_str = f"exitcode{time.time()}"
     abs_path = pathlib.Path(work_dir).absolute()
+    host_os = platform.system()
+    if host_os == "Windows":
+        volume_path = str(abs_path).replace("\\", "/")
+        volume_path = volume_path[0].lower() + volume_path[1:]
+    else:
+        volume_path = str(abs_path)
+
     cmd = [
         "sh",
         "-c",
@@ -411,7 +422,7 @@ def execute_code(
         working_dir="/workspace",
         detach=True,
         # get absolute path to the working directory
-        volumes={abs_path: {"bind": "/workspace", "mode": "rw"}},
+        volumes={volume_path: {"bind": "/workspace", "mode": "rw"}},
     )
     start_time = time.time()
     while container.status != "exited" and time.time() - start_time < timeout:
