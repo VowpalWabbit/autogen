@@ -34,7 +34,7 @@ jobs:
       - name: Run a Python container and execute script
         run: |
           $path = "${{ github.workspace }}".Replace("\", "/")
-          docker run --name py-container -v ${path}:/workspace python:3.8 python -c "print('Hello, World!')"
+          docker run --name py-container -v ${path}:/workspace python:3 python -c "print('Hello, World!')"
         shell: pwsh
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
