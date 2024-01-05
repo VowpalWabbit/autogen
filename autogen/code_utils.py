@@ -325,6 +325,19 @@ def execute_code(
         work_dir = WORKING_DIR
     filepath = os.path.join(work_dir, filename)
     file_dir = os.path.dirname(filepath)
+
+    path = pathlib.Path(work_dir)
+    print(f"printing contents of {path}")
+    for item in os.listdir(path):
+        print(item)
+    pparent = path.parent
+    print(f"printing contents of {pparent}")
+    for item in os.listdir(pparent):
+        print(item)
+    ppparent = pparent.parent
+    print(f"printing contents of {ppparent}")
+    for item in os.listdir(ppparent):
+        print(item)
     os.makedirs(file_dir, exist_ok=True)
     if code is not None:
         with open(filepath, "w", encoding="utf-8") as fout:
