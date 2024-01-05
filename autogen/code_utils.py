@@ -402,7 +402,7 @@ def execute_code(
             try:
                 client.images.pull(image)
                 break
-            except docker.errors.DockerException:
+            except (docker.errors.DockerException, docker.errors.APIError):
                 print("Failed to pull image", image)
     # get a randomized str based on current time to wrap the exit code
     exit_code_str = f"exitcode{time.time()}"
