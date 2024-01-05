@@ -37,7 +37,7 @@ jobs:
             --name py-container \
             -v ${{ github.workspace }}:/workspace \
             python:3.8 \
-            python print("hello world")
+            python -c "print('Hello, World!')"
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
