@@ -305,10 +305,16 @@ def test_execute_code(use_docker=None):
         docker = None
     if use_docker is None:
         use_docker = docker is not None
-    exit_code, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py", use_docker=use_docker)
+    exit_code, msg, image = execute_code(
+        "print('hello world')", filename="tmp/codetest.py", use_docker=use_docker, work_dir=f"{here}/my_tmp1"
+    )
     assert exit_code == 0 and msg == "hello world\n", msg
     # read a file
-    print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()", use_docker=use_docker))
+    print(
+        execute_code(
+            "with open('tmp/codetest.py', 'r') as f: a=f.read()", use_docker=use_docker, work_dir=f"{here}/my_tmp1"
+        )
+    )
     # create a file
     exit_code, msg, image = execute_code(
         "with open('tmp/codetest.py', 'w') as f: f.write('b=1')",
