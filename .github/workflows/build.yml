@@ -42,11 +42,16 @@ jobs:
           python -c "import autogen"
           pip install -e. pytest mock
       - name: Set AUTOGEN_USE_DOCKER based on OS
+        shell: bash
         run: |
-          if ($env:matrix_os -eq "macos-latest" -or $env:matrix_os -eq "windows-2019") {
-            "AUTOGEN_USE_DOCKER=False" | Out-File -Append -FilePath $env:GITHUB_ENV
-          } # Add other conditions or an else clause as needed
-        shell: pwsh  # Specify pwsh as the shell for this step
+          if [[ ${{ matrix.os }} == windows-2019 ]]; then
+            echo "AUTOGEN_USE_DOCKER=False" >> $GITHUB_ENV
+          elif [[ ${{ matrix.os }} == macos-latest ]]; then
+            echo "AUTOGEN_USE_DOCKER=False" >> $GITHUB_ENV
+          fi
+      - name: Use the Environment Variable
+        run: echo "The value of AUTOGEN_USE_DOCKER is $AUTOGEN_USE_DOCKER"
+        shell: bash
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
