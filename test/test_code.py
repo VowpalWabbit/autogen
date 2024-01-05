@@ -304,12 +304,6 @@ def test_execute_code(use_docker=None):
         print(exc)
         docker = None
 
-    import platform
-
-    host_os = platform.system()
-    if host_os == "Darwin":
-        print("Skip test_execute_code on MacOS")
-        use_docker = False
     if use_docker is None:
         use_docker = docker is not None
     exit_code, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py", use_docker=use_docker)

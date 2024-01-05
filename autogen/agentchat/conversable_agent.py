@@ -1,3 +1,4 @@
+import os
 import asyncio
 import copy
 import functools
@@ -35,6 +36,45 @@ __all__ = ("ConversableAgent",)
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+def check_and_decide_use_docker(code_execution_config: Dict) -> bool:
+    if "use_docker" in code_execution_config:
+        use_docker = code_execution_config["use_docker"]
+    else:
+        env_var_use_docker = os.environ.get("AUTOGEN_USE_DOCKER", "True")
+
+        truthy_values = {"1", "true", "yes", "t"}
+        falsy_values = {"0", "false", "no", "f"}
+
+        # Convert the value to lowercase for case-insensitive comparison
+        env_var_use_docker_lower = env_var_use_docker.lower()
+
+        # Determine the boolean value based on the environment variable
+        if env_var_use_docker_lower in truthy_values:
+            use_docker = True
+        elif env_var_use_docker_lower in falsy_values:
+            use_docker = False
+        elif env_var_use_docker_lower == "none":  # Special case for 'None' as a string
+            use_docker = None
+        else:
+            # Raise an error for any unrecognized value
+            raise ValueError(
+                f'Invalid value for AUTOGEN_USE_DOCKER: {env_var_use_docker}. Please set AUTOGEN_USE_DOCKER to "1/True/yes", "0/False/no", or "None".'
+            )
+
+    if use_docker is not None:
+        inside_docker = in_docker_container()
+        docker_installed_and_running = is_docker_running()
+        if use_docker and not inside_docker and not docker_installed_and_running:
+            raise RuntimeError(
+                'Docker is not running, please make sure docker is running (advised approach for code execution) or set "use_docker":False.'
+            )
+        if not use_docker:
+            logger.warning(
+                'use_docker was set to False. Any code execution will be run natively but we strongly advise to set "use_docker":True. Set "use_docker":None to silence this message.'
+            )
+    return use_docker
 
 
 class ConversableAgent(Agent):
@@ -140,21 +180,10 @@ class ConversableAgent(Agent):
         )
 
         if isinstance(self._code_execution_config, Dict):
-            if "use_docker" in self._code_execution_config:
-                use_docker = self._code_execution_config["use_docker"]
-            else:
-                use_docker = True
-            if use_docker is not None:
-                inside_docker = in_docker_container()
-                docker_installed_and_running = is_docker_running()
-                if use_docker and not inside_docker and not docker_installed_and_running:
-                    raise RuntimeError(
-                        'Docker is not running, please make sure docker is running (advised approach for code execution) or set "use_docker":False.'
-                    )
-                if not use_docker:
-                    logger.warning(
-                        'use_docker was set to False. Any code execution will be run natively but we strongly advise to set "use_docker":True. Set "use_docker":None to silence this message.'
-                    )
+            use_docker = check_and_decide_use_docker(self._code_execution_config)
+            self._code_execution_config["use_docker"] = use_docker
+            print(f"Code execution is set to use docker: {use_docker}")
+
         self.human_input_mode = human_input_mode
         self._max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
