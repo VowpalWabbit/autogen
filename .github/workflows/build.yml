@@ -31,10 +31,13 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - run: |
-          docker ps
+      - name: Run a Python container and execute script
+        run: |
+          docker run \
+            --name py-container \
+            -v ${{ github.workspace }}:/workspace \
+            python:3.8 \
+            python print("hello world")
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
