@@ -305,28 +305,29 @@ def test_execute_code(use_docker=None):
         docker = None
     if use_docker is None:
         use_docker = docker is not None
-    exit_code, msg, image = execute_code("print('hello world')", filename="codetest.py", use_docker=use_docker)
+    exit_code, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py", use_docker=use_docker)
     assert exit_code == 0 and msg == "hello world\n", msg
     # read a file
-    print(execute_code("with open('codetest.py', 'r') as f: a=f.read()", use_docker=use_docker))
+    print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()", use_docker=use_docker))
     # create a file
     exit_code, msg, image = execute_code(
-        "with open('codetest.py', 'w') as f: f.write('b=1')",
+        "with open('tmp/codetest.py', 'w') as f: f.write('b=1')",
         work_dir=f"{here}/my_tmp",
-        filename="codetest2.py",
+        filename="tmp2/codetest.py",
         use_docker=use_docker,
     )
     assert exit_code and (
-        'File "codetest2.py"'.replace("/", PATH_SEPARATOR) in msg or 'File ".\\codetest2.py' in msg  # py3.8 + win32
+        'File "tmp2/codetest.py"'.replace("/", PATH_SEPARATOR) in msg
+        or 'File ".\\tmp2/codetest.py' in msg  # py3.8 + win32
     ), msg
     print(
         execute_code(
-            "with open('codetest.py', 'w') as f: f.write('b=1')", work_dir=f"{here}/my_tmp", use_docker=use_docker
+            "with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir=f"{here}/my_tmp", use_docker=use_docker
         )
     )
     # execute code in a file
-    print(execute_code(filename="codetest.py", use_docker=use_docker))
-    print(execute_code("python codetest.py", lang="sh", use_docker=use_docker))
+    print(execute_code(filename="tmp/codetest.py", use_docker=use_docker))
+    print(execute_code("python tmp/codetest.py", lang="sh", use_docker=use_docker))
     # execute code for assertion error
     exit_code, msg, image = execute_code("assert 1==2", use_docker=use_docker)
     assert exit_code, msg

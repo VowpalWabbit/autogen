@@ -323,19 +323,10 @@ def execute_code(
         filename = f"tmp_code_{code_hash}.{'py' if lang.startswith('python') else lang}"
     if work_dir is None:
         work_dir = WORKING_DIR
+
     filepath = os.path.join(work_dir, filename)
     file_dir = os.path.dirname(filepath)
-
     os.makedirs(file_dir, exist_ok=True)
-
-    path = pathlib.Path(work_dir)
-    print(f"printing contents of {path}")
-    for item in os.listdir(path):
-        print(item)
-    pparent = path.parent
-    print(f"printing contents of {pparent}")
-    for item in os.listdir(pparent):
-        print(item)
 
     if code is not None:
         with open(filepath, "w", encoding="utf-8") as fout:
@@ -419,7 +410,8 @@ def execute_code(
     host_os = platform.system()
     if host_os == "Windows":
         volume_path = str(abs_path).replace("\\", "/")
-        volume_path = volume_path[0].lower() + volume_path[1:]
+        volume_path = volume_path.replace(":", "").lower()
+        volume_path = "//" + volume_path[0].lower() + volume_path[1:]
     else:
         volume_path = str(abs_path)
 
