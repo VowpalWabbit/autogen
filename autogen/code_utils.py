@@ -407,6 +407,9 @@ def execute_code(
     # get a randomized str based on current time to wrap the exit code
     exit_code_str = f"exitcode{time.time()}"
     abs_path = pathlib.Path(work_dir).absolute()
+    non_abs_path = pathlib.Path(work_dir)
+    print(f"***** abs_path: {abs_path} *****")
+    print(f"***** non_abs_path: {non_abs_path} *****")
     host_os = platform.system()
     if host_os == "Windows":
         volume_path = str(abs_path).replace("\\", "/")
