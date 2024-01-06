@@ -1,3 +1,4 @@
+import os
 import asyncio
 import copy
 import functools
@@ -8,7 +9,17 @@ from collections import defaultdict
 from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union
 
 from .. import OpenAIWrapper
-from ..code_utils import DEFAULT_MODEL, UNKNOWN, content_str, execute_code, extract_code, infer_lang
+from ..code_utils import (
+    DEFAULT_MODEL,
+    UNKNOWN,
+    content_str,
+    check_use_docker,
+    decide_use_docker,
+    execute_code,
+    extract_code,
+    infer_lang,
+)
+
 from ..function_utils import get_function_schema, load_basemodels_if_needed, serialize_to_str
 from .agent import Agent
 from .._pydantic import model_dump
@@ -129,6 +140,14 @@ class ConversableAgent(Agent):
         self._code_execution_config: Union[Dict, Literal[False]] = (
             {} if code_execution_config is None else code_execution_config
         )
+
+        if isinstance(self._code_execution_config, Dict):
+            use_docker = self._code_execution_config.get("use_docker", None)
+            use_docker = decide_use_docker(use_docker)
+            check_use_docker(use_docker)
+            self._code_execution_config["use_docker"] = use_docker
+            print(f"Code execution is set to use docker: {use_docker}")
+
         self.human_input_mode = human_input_mode
         self._max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY

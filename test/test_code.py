@@ -303,6 +303,7 @@ def test_execute_code(use_docker=None):
     except ImportError as exc:
         print(exc)
         docker = None
+
     if use_docker is None:
         use_docker = docker is not None
     exit_code, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py", use_docker=use_docker)

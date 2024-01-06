@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import pathlib
 import re
 import subprocess
@@ -16,6 +17,7 @@ try:
 except ImportError:
     docker = None
 
+SENTINEL = object()
 DEFAULT_MODEL = "gpt-4"
 FAST_MODEL = "gpt-3.5-turbo"
 # Regular expression for finding a code block
@@ -224,12 +226,82 @@ def _cmd(lang):
     raise NotImplementedError(f"{lang} not recognized in code execution")
 
 
+def is_docker_running():
+    """Check if docker is running.
+
+    Returns:
+        bool: True if docker is running; False otherwise.
+    """
+    if docker is None:
+        print("******** docker not installed ********")
+        return False
+    try:
+        client = docker.from_env()
+        client.ping()
+        print("******** docker is running ********")
+        return True
+    except docker.errors.DockerException as e:
+        print("******** docker not running ********")
+        print(f"******** {e} ********")
+        return False
+
+
+def in_docker_container():
+    """Check if the code is running in a docker container.
+
+    Returns:
+        bool: True if the code is running in a docker container; False otherwise.
+    """
+    return os.path.exists("/.dockerenv")
+
+
+def decide_use_docker(use_docker) -> bool:
+    print(f"inside decide_use_docker: {use_docker}")
+    if use_docker is None:
+        env_var_use_docker = os.environ.get("AUTOGEN_USE_DOCKER", "True")
+        print(f"env_var_use_docker: {env_var_use_docker}")
+
+        truthy_values = {"1", "true", "yes", "t"}
+        falsy_values = {"0", "false", "no", "f"}
+
+        # Convert the value to lowercase for case-insensitive comparison
+        env_var_use_docker_lower = env_var_use_docker.lower()
+
+        # Determine the boolean value based on the environment variable
+        if env_var_use_docker_lower in truthy_values:
+            use_docker = True
+        elif env_var_use_docker_lower in falsy_values:
+            use_docker = False
+        elif env_var_use_docker_lower == "none":  # Special case for 'None' as a string
+            use_docker = None
+        else:
+            # Raise an error for any unrecognized value
+            raise ValueError(
+                f'Invalid value for AUTOGEN_USE_DOCKER: {env_var_use_docker}. Please set AUTOGEN_USE_DOCKER to "1/True/yes", "0/False/no", or "None".'
+            )
+    return use_docker
+
+
+def check_use_docker(use_docker) -> None:
+    if use_docker is not None:
+        inside_docker = in_docker_container()
+        docker_installed_and_running = is_docker_running()
+        if use_docker and not inside_docker and not docker_installed_and_running:
+            raise RuntimeError(
+                'Docker is not running, please make sure docker is running (advised approach for code execution) or set "use_docker":False.'
+            )
+        if not use_docker:
+            logger.warning(
+                'use_docker was set to False. Any code execution will be run natively but we strongly advise to set "use_docker":True. Set "use_docker":None to silence this message.'
+            )
+
+
 def execute_code(
     code: Optional[str] = None,
     timeout: Optional[int] = None,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[Union[List[str], str, bool]] = None,
+    use_docker: Union[List[str], str, bool] = SENTINEL,
     lang: Optional[str] = "python",
 ) -> Tuple[int, str, str]:
     """Execute code in a docker container.
@@ -249,15 +321,15 @@ def execute_code(
             If None, a default working directory will be used.
             The default working directory is the "extensions" directory under
             "path_to_autogen".
-        use_docker (Optional, list, str or bool): The docker image to use for code execution.
+        use_docker (list, str or bool): The docker image to use for code execution.
             If a list or a str of image name(s) is provided, the code will be executed in a docker container
             with the first image successfully pulled.
             If None, False or empty, the code will be executed in the current environment.
-            Default is None, which will be converted into an empty list when docker package is available.
+            Default is True.
             Expected behaviour:
-                - If `use_docker` is explicitly set to True and the docker package is available, the code will run in a Docker container.
-                - If `use_docker` is explicitly set to True but the Docker package is missing, an error will be raised.
-                - If `use_docker` is not set (i.e., left default to None) and the Docker package is not available, a warning will be displayed, but the code will run natively.
+                - If `use_docker` is not set (i.e. left default to True) or is explicitly set to True and the docker package is available, the code will run in a Docker container.
+                - If `use_docker` is not set (i.e. left default to True) or is explicitly set to True but the Docker package is missing, an error will be raised.
+                - If `use_docker` is explicitly set to False, a warning will be displayed, but the code will run natively.
             If the code is executed in the current environment,
             the code must be trusted.
         lang (Optional, str): The language of the code. Default is "python".
@@ -272,18 +344,14 @@ def execute_code(
         logger.error(error_msg)
         raise AssertionError(error_msg)
 
-    # Warn if use_docker was unspecified (or None), and cannot be provided (the default).
-    # In this case the current behavior is to fall back to run natively, but this behavior
-    # is subject to change.
-    if use_docker is None:
-        if docker is None:
-            use_docker = False
-            logger.warning(
-                "execute_code was called without specifying a value for use_docker. Since the python docker package is not available, code will be run natively. Note: this fallback behavior is subject to change"
-            )
-        else:
-            # Default to true
-            use_docker = True
+    running_inside_docker = in_docker_container()
+    docker_running = is_docker_running()
+
+    print(f"BEFORE check_and_decide_use_docker: {use_docker}")
+    if use_docker is SENTINEL:
+        use_docker = decide_use_docker(use_docker=None)
+    print(f"AFTER check_and_decide_use_docker: {use_docker}")
+    check_use_docker(use_docker)
 
     timeout = timeout or DEFAULT_TIMEOUT
     original_filename = filename
@@ -295,15 +363,16 @@ def execute_code(
         filename = f"tmp_code_{code_hash}.{'py' if lang.startswith('python') else lang}"
     if work_dir is None:
         work_dir = WORKING_DIR
+
     filepath = os.path.join(work_dir, filename)
     file_dir = os.path.dirname(filepath)
     os.makedirs(file_dir, exist_ok=True)
+
     if code is not None:
         with open(filepath, "w", encoding="utf-8") as fout:
             fout.write(code)
-    # check if already running in a docker container
-    in_docker_container = os.path.exists("/.dockerenv")
-    if not use_docker or in_docker_container:
+
+    if not use_docker or running_inside_docker:
         # already running in a docker container
         cmd = [
             sys.executable if lang.startswith("python") else _cmd(lang),
@@ -347,7 +416,13 @@ def execute_code(
         return result.returncode, logs, None
 
     # create a docker client
+    if use_docker and not docker_running:
+        raise RuntimeError(
+            "Docker package is missing or docker is not running. Please make sure docker is running or set use_docker=False."
+        )
+
     client = docker.from_env()
+
     image_list = (
         ["python:3-alpine", "python:3", "python:3-windowsservercore"]
         if use_docker is True
@@ -366,24 +441,33 @@ def execute_code(
             try:
                 client.images.pull(image)
                 break
-            except docker.errors.DockerException:
+            except (docker.errors.DockerException, docker.errors.APIError):
                 print("Failed to pull image", image)
     # get a randomized str based on current time to wrap the exit code
     exit_code_str = f"exitcode{time.time()}"
     abs_path = pathlib.Path(work_dir).absolute()
+    host_os = platform.system()
+    if host_os == "Windows":
+        volume_path = str(abs_path).replace("\\", "/")
+    else:
+        volume_path = str(abs_path)
+
+    print(f"***** volume_path: {volume_path} *****")
+
     cmd = [
         "sh",
         "-c",
         f"{_cmd(lang)} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
     ]
     # create a docker container
+    workspace = "c:/workspace" if host_os == "Windows" else "/workspace"
     container = client.containers.run(
         image,
         command=cmd,
-        working_dir="/workspace",
+        working_dir=workspace,
         detach=True,
         # get absolute path to the working directory
-        volumes={abs_path: {"bind": "/workspace", "mode": "rw"}},
+        volumes={volume_path: {"bind": workspace, "mode": "rw"}},
     )
     start_time = time.time()
     while container.status != "exited" and time.time() - start_time < timeout:
